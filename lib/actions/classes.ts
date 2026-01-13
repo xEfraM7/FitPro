@@ -17,11 +17,15 @@ export async function getSpecialClasses() {
   return data
 }
 
+import { getUserOrganizationId } from "@/lib/auth-helpers"
+
 export async function createSpecialClass(classData: TablesInsert<"special_classes">) {
   const supabase = await createClient()
+  const { orgId } = await getUserOrganizationId()
+
   const { data, error } = await supabase
     .from("special_classes")
-    .insert(classData)
+    .insert({ ...classData, organization_id: orgId })
     .select()
     .single()
 
@@ -54,7 +58,7 @@ export async function updateSpecialClass(id: string, classData: TablesUpdate<"sp
 
 export async function deleteSpecialClass(id: string) {
   const supabase = await createClient()
-  
+
   const { data: classItem } = await supabase
     .from("special_classes")
     .select("name")
@@ -87,9 +91,11 @@ export async function getSpecialClassPayments() {
 
 export async function createSpecialClassPayment(payment: TablesInsert<"special_class_payments">) {
   const supabase = await createClient()
+  const { orgId } = await getUserOrganizationId()
+
   const { data, error } = await supabase
     .from("special_class_payments")
-    .insert(payment)
+    .insert({ ...payment, organization_id: orgId })
     .select("*, members(name), special_classes(name)")
     .single()
 
@@ -116,7 +122,7 @@ export async function createSpecialClassPayment(payment: TablesInsert<"special_c
 
 export async function deleteSpecialClassPayment(id: string) {
   const supabase = await createClient()
-  
+
   const { data: payment } = await supabase
     .from("special_class_payments")
     .select("amount, method, status, members(name)")

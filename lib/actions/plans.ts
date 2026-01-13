@@ -15,11 +15,15 @@ export async function getPlans() {
   return data
 }
 
+import { getUserOrganizationId } from "@/lib/auth-helpers"
+
 export async function createPlan(plan: TablesInsert<"plans">) {
   const supabase = await createClient()
+  const { orgId } = await getUserOrganizationId()
+
   const { data, error } = await supabase
     .from("plans")
-    .insert(plan)
+    .insert({ ...plan, organization_id: orgId })
     .select()
     .single()
 

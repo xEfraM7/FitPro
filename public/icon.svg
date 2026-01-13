@@ -2,11 +2,11 @@
   <!-- Background -->
   <rect width="200" height="200" fill="#000000" rx="40"/>
   
-  <!-- Madbox text/logo simplified as geometric shapes -->
+  <!-- FitPro text/logo simplified as geometric shapes -->
   <!-- M shape -->
   <path d="M 30 80 L 30 140 M 30 80 L 50 100 L 70 80 L 70 140 M 70 80 L 90 100 L 110 80 L 110 140" stroke="#FF6B35" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   
-  <!-- Box shape (representing "box" in Madbox) -->
+  <!-- Box shape -->
   <rect x="120" y="80" width="50" height="60" fill="none" stroke="#FF6B35" stroke-width="8" rx="4"/>
   
   <!-- Accent dot -->

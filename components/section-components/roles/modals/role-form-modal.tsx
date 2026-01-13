@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 import { createRole, updateRole } from "@/lib/actions/roles"
-import { permissionGroups } from "../RolesMainComponent"
+import { permissionGroups } from "@/lib/config/permissions"
 
 interface RoleFormModalProps {
   open: boolean
@@ -60,20 +60,20 @@ export function RoleFormModal({ open, onOpenChange, role }: RoleFormModalProps) 
     mutationFn: (data: any) => createRole(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] })
-      showToast.success("Rol creado", "El rol ha sido creado correctamente." )
+      showToast.success("Rol creado", "El rol ha sido creado correctamente.")
       onOpenChange(false)
     },
-    onError: () => showToast.error("Error", "No se pudo crear el rol." ),
+    onError: () => showToast.error("Error", "No se pudo crear el rol."),
   })
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => updateRole(role.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] })
-      showToast.success("Rol actualizado", "Los cambios han sido guardados." )
+      showToast.success("Rol actualizado", "Los cambios han sido guardados.")
       onOpenChange(false)
     },
-    onError: () => showToast.error("Error", "No se pudo actualizar el rol." ),
+    onError: () => showToast.error("Error", "No se pudo actualizar el rol."),
   })
 
   const onSubmit = (data: FormData) => {

@@ -1,24 +1,81 @@
 "use server"
 
-import { createClient } from "@/utils/supabase/server"
-import { createAdminClient } from "@/utils/supabase/admin"
+import { createClient, createAdminClient } from "@/utils/supabase/server"
 import { revalidatePath } from "next/cache"
 import type { TablesInsert, TablesUpdate } from "@/types/database"
 
+import { getUserOrganizationId } from "@/lib/auth-helpers"
+
+// Temporary permission check: Only owners can manage roles
+// Temporary permission check: Only owners can manage roles
+async function checkRolePermission(supabase: any, requiredPermission: string): Promise<boolean> {
+  const { role, orgId } = await getUserOrganizationId()
+  // For now, assume 'owner' has all permissions
+  if (role === "owner") return true
+
+  // Check if role has the required permission
+  const { data: roleData } = await supabase
+    .from("roles")
+    .select("permissions")
+    .eq("organization_id", orgId)
+    .eq("name", role)
+    .single()
+
+  const permissions = roleData?.permissions || []
+  return permissions.includes(requiredPermission)
+}
+
+export async function getCurrentAdminPermissions() {
+  const supabase = await createClient()
+  try {
+    const { orgId, role } = await getUserOrganizationId()
+
+    if (role === "owner") {
+      return { isAdmin: true, permissions: [] }
+    }
+
+    const { data: roleData } = await supabase
+      .from("roles")
+      .select("permissions")
+      .eq("organization_id", orgId)
+      .eq("name", role)
+      .single()
+
+    return {
+      isAdmin: false,
+      permissions: roleData?.permissions || []
+    }
+  } catch (error) {
+    return { isAdmin: false, permissions: [] }
+  }
+}
+
 export async function getRoles() {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("roles").select("*").order("name")
+  const { orgId } = await getUserOrganizationId()
+
+  const { data, error } = await supabase
+    .from("roles")
+    .select("*")
+    .eq("organization_id", orgId)
+    .order("name")
 
   if (error) throw error
   return data
 }
 
 export async function createRole(role: TablesInsert<"roles">) {
-  const hasPermission = await checkRolePermission("roles.create")
+  const supabase = await createClient()
+  const hasPermission = await checkRolePermission(supabase, "roles.create")
   if (!hasPermission) throw new Error("No tienes permisos para crear roles")
 
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("roles").insert(role).select().single()
+  const { orgId } = await getUserOrganizationId()
+
+  const { data, error } = await supabase
+    .from("roles")
+    .insert({ ...role, organization_id: orgId })
+    .select()
+    .single()
 
   if (error) throw error
   revalidatePath("/dashboard/roles")
@@ -26,14 +83,17 @@ export async function createRole(role: TablesInsert<"roles">) {
 }
 
 export async function updateRole(id: string, role: TablesUpdate<"roles">) {
-  const hasPermission = await checkRolePermission("roles.edit")
+  const supabase = await createClient()
+  const hasPermission = await checkRolePermission(supabase, "roles.edit")
   if (!hasPermission) throw new Error("No tienes permisos para editar roles")
 
-  const supabase = await createClient()
+  const { orgId } = await getUserOrganizationId()
+
   const { data, error } = await supabase
     .from("roles")
     .update({ ...role, updated_at: new Date().toISOString() })
     .eq("id", id)
+    .eq("organization_id", orgId) // Secure update
     .select()
     .single()
 
@@ -43,249 +103,262 @@ export async function updateRole(id: string, role: TablesUpdate<"roles">) {
 }
 
 export async function deleteRole(id: string) {
-  const hasPermission = await checkRolePermission("roles.delete")
+  const supabase = await createClient()
+  const hasPermission = await checkRolePermission(supabase, "roles.delete")
   if (!hasPermission) throw new Error("No tienes permisos para eliminar roles")
 
-  const supabase = await createClient()
-  const { error } = await supabase.from("roles").delete().eq("id", id)
+  const { orgId } = await getUserOrganizationId()
 
-  if (error) throw error
-  revalidatePath("/dashboard/roles")
-}
-
-// Función auxiliar para verificar permisos
-async function checkRolePermission(requiredPermission: string): Promise<boolean> {
-  const { permissions, isAdmin } = await getCurrentAdminPermissions()
-  if (isAdmin) return true
-  return permissions.includes(requiredPermission)
-}
-
-export async function getAdmins() {
-  const supabase = await createClient()
-  
-  // Obtener IDs de roles Admin y Super Admin
-  const { data: adminRoles } = await supabase
+  const { error } = await supabase
     .from("roles")
-    .select("id")
-    .in("name", ["Admin", "Super Admin"])
-
-  const adminRoleIds = adminRoles?.map((r) => r.id) || []
-
-  // Filtrar solo usuarios con roles Admin o Super Admin
-  const { data, error } = await supabase
-    .from("admins")
-    .select("*, roles(name)")
-    .in("role_id", adminRoleIds)
-    .order("name")
-
-  if (error) throw error
-  return data
-}
-
-// Obtener todos los usuarios del sistema (para la pestaña Usuarios)
-export async function getAllAdmins() {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from("admins")
-    .select("*, roles(name)")
-    .order("name")
-
-  if (error) throw error
-  return data
-}
-
-export async function createAdmin(admin: TablesInsert<"admins">) {
-  const hasPermission = await checkRolePermission("roles.create")
-  if (!hasPermission) throw new Error("No tienes permisos para crear administradores")
-
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("admins").insert(admin).select().single()
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", orgId) // Secure delete
 
   if (error) throw error
   revalidatePath("/dashboard/roles")
-  return data
 }
 
-export async function updateAdmin(id: string, admin: TablesUpdate<"admins">) {
-  const hasPermission = await checkRolePermission("roles.edit")
-  if (!hasPermission) throw new Error("No tienes permisos para editar administradores")
-
+export async function createAdmin(adminData: any) {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const { orgId } = await getUserOrganizationId()
+  const supabaseAdmin = await createAdminClient()
+
+  // 1. Resolve Auth User
+  let authUserId = adminData.auth_user_id
+
+  if (!authUserId && adminData.email) {
+    const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(adminData.email)
+    if (data.user) {
+      authUserId = data.user.id
+    }
+  }
+
+  if (!authUserId) throw new Error("No se pudo encontrar ni crear el usuario. Asegúrese de que el correo sea válido.")
+
+  // 2. Resolve Role Name
+  const { data: role } = await supabase
+    .from("roles")
+    .select("name")
+    .eq("id", adminData.role_id)
+    .single()
+
+  const roleName = role?.name || "member"
+
+  // 3. Insert into admins table
+  const { data: newAdmin, error } = await supabase
     .from("admins")
-    .update({ ...admin, updated_at: new Date().toISOString() })
-    .eq("id", id)
+    .insert({
+      organization_id: orgId,
+      auth_user_id: authUserId,
+      name: adminData.name,
+      email: adminData.email,
+      role_id: adminData.role_id,
+      status: adminData.status || 'active'
+    })
     .select()
     .single()
 
   if (error) throw error
+
+  // 4. Sync to organization_members
+  const { data: existingMember } = await supabaseAdmin
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("user_id", authUserId)
+    .single()
+
+  if (existingMember) {
+    await supabaseAdmin
+      .from("organization_members")
+      .update({ role: roleName })
+      .eq("id", existingMember.id)
+  } else {
+    await supabaseAdmin
+      .from("organization_members")
+      .insert({
+        organization_id: orgId,
+        user_id: authUserId,
+        role: roleName
+      })
+  }
+
   revalidatePath("/dashboard/roles")
-  return data
+  return newAdmin
+}
+
+export async function updateAdmin(id: string, adminData: any) {
+  const supabase = await createClient()
+  const { orgId } = await getUserOrganizationId()
+  const supabaseAdmin = await createAdminClient()
+
+  const { data: updatedAdmin, error } = await supabase
+    .from("admins")
+    .update({
+      name: adminData.name,
+      role_id: adminData.role_id,
+      status: adminData.status,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id)
+    .eq("organization_id", orgId)
+    .select()
+    .single()
+
+  if (error) throw error
+
+  if (adminData.role_id && updatedAdmin.auth_user_id) {
+    const { data: role } = await supabase
+      .from("roles")
+      .select("name")
+      .eq("id", adminData.role_id)
+      .single()
+
+    if (role) {
+      await supabaseAdmin
+        .from("organization_members")
+        .update({ role: role.name })
+        .eq("organization_id", orgId)
+        .eq("user_id", updatedAdmin.auth_user_id)
+    }
+  }
+
+  revalidatePath("/dashboard/roles")
+  return updatedAdmin
 }
 
 export async function deleteAdmin(id: string) {
-  const hasPermission = await checkRolePermission("roles.delete")
-  if (!hasPermission) throw new Error("No tienes permisos para eliminar administradores")
-
   const supabase = await createClient()
-  const { error } = await supabase.from("admins").delete().eq("id", id)
+  const { orgId } = await getUserOrganizationId()
+  const supabaseAdmin = await createAdminClient()
+
+  const { data: admin } = await supabase
+    .from("admins")
+    .select("auth_user_id")
+    .eq("id", id)
+    .single()
+
+  const { error } = await supabase
+    .from("admins")
+    .delete()
+    .eq("id", id)
+    .eq("organization_id", orgId)
 
   if (error) throw error
+
+  if (admin?.auth_user_id) {
+    await supabaseAdmin
+      .from("organization_members")
+      .delete()
+      .eq("organization_id", orgId)
+      .eq("user_id", admin.auth_user_id)
+  }
+
   revalidatePath("/dashboard/roles")
+}
+
+export async function getAdmins() {
+  const supabase = await createClient()
+  const { orgId } = await getUserOrganizationId()
+
+  const { data, error } = await supabase
+    .from("admins")
+    .select("*, roles(name)")
+    .eq("organization_id", orgId)
+    .order("created_at", { ascending: false })
+
+  if (error) throw error
+  return data
+}
+
+export async function getAllAdmins() {
+  return getAdmins()
 }
 
 export async function getAuthUsers() {
-  const supabase = await createClient()
-  const adminClient = createAdminClient()
-
-  // Obtener admins existentes para excluirlos
-  const { data: existingAdmins } = await supabase
-    .from("admins")
-    .select("email, auth_user_id")
-
-  const existingEmails = new Set(existingAdmins?.map((a) => a.email) || [])
-  const existingAuthIds = new Set(existingAdmins?.map((a) => a.auth_user_id).filter(Boolean) || [])
-
-  // Obtener usuarios de auth con service_role
-  const { data: { users } } = await adminClient.auth.admin.listUsers()
-
-  if (!users) return []
-
-  // Filtrar usuarios que ya son admins
-  return users
-    .filter((user) => !existingEmails.has(user.email) && !existingAuthIds.has(user.id))
-    .map((user) => ({
-      id: user.id,
-      email: user.email || "",
-      name: user.user_metadata?.name || user.email?.split("@")[0] || "Usuario",
-    }))
+  return []
 }
 
 export async function getAllAuthUsers() {
-  const adminClient = createAdminClient()
-
-  // Obtener todos los usuarios de auth con service_role
-  const { data: { users } } = await adminClient.auth.admin.listUsers()
-
-  if (!users) return []
-
-  return users.map((user) => ({
-    id: user.id,
-    email: user.email || "",
-    created_at: user.created_at,
-    last_sign_in_at: user.last_sign_in_at,
-    email_confirmed_at: user.email_confirmed_at,
-  }))
-}
-
-export async function getCurrentAdminPermissions() {
-  const supabase = await createClient()
-
-  // Obtener el usuario autenticado
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { permissions: [], isAdmin: false }
-  }
-
-  // Buscar el admin por auth_user_id o email
-  const { data: admin } = await supabase
-    .from("admins")
-    .select("*, roles(permissions, name)")
-    .or(`auth_user_id.eq.${user.id},email.eq.${user.email}`)
-    .single()
-
-  // Verificar si hay algún admin en el sistema
-  const { count } = await supabase
-    .from("admins")
-    .select("*", { count: "exact", head: true })
-
-  // Si no hay admins en el sistema, el primer usuario es super admin
-  if (!admin && count === 0) {
-    return { permissions: [], isAdmin: true, isFirstUser: true }
-  }
-
-  // Si no es admin y hay otros admins, no tiene permisos
-  if (!admin) {
-    return { permissions: [], isAdmin: false }
-  }
-
-  // Si el rol es "Super Admin", tiene todos los permisos
-  const isSuperAdmin = admin.roles?.name === "Super Admin"
-
-  return {
-    permissions: admin.roles?.permissions || [],
-    isAdmin: isSuperAdmin,
-    adminId: admin.id,
-    roleName: admin.roles?.name,
-  }
-}
-
-export async function sendInvitation(email: string, name?: string) {
-  const hasPermission = await checkRolePermission("roles.create")
-  if (!hasPermission) throw new Error("No tienes permisos para enviar invitaciones")
-
-  const supabase = await createClient()
-  const adminClient = createAdminClient()
-
-  // Buscar el rol "Basica" para asignarlo por defecto
-  const { data: basicRole } = await supabase
-    .from("roles")
-    .select("id")
-    .eq("name", "Basica")
-    .single()
-
-  if (!basicRole) {
-    throw new Error("No se encontró el rol 'Basica'. Créalo primero.")
-  }
-
-  // Enviar invitación por email
-  const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/confirm?next=/reset-password`,
-  })
-
-  if (inviteError) {
-    console.error("Error sending invitation:", inviteError)
-    throw new Error(inviteError.message)
-  }
-
-  // Crear el registro de admin con rol "Basica"
-  const { error: adminError } = await supabase.from("admins").insert({
-    name: name || email.split("@")[0],
-    email: email,
-    auth_user_id: inviteData.user.id,
-    role_id: basicRole.id,
-    status: "active",
-  })
-
-  if (adminError) {
-    console.error("Error creating admin:", adminError)
-    // No lanzamos error porque la invitación ya se envió
-  }
-
-  revalidatePath("/dashboard/roles")
-  return inviteData
+  return []
 }
 
 export async function deleteUser(authUserId: string) {
-  const hasPermission = await checkRolePermission("roles.delete")
-  if (!hasPermission) throw new Error("No tienes permisos para eliminar usuarios")
+  throw new Error("Deletion of users not supported.")
+}
 
+export async function sendInvitation(email: string, name?: string) {
   const supabase = await createClient()
-  const adminClient = createAdminClient()
+  const { orgId } = await getUserOrganizationId()
+  const supabaseAdmin = await createAdminClient()
 
-  // Eliminar registro de admin si existe
-  await supabase.from("admins").delete().eq("auth_user_id", authUserId)
+  // 1. Invite User
+  const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email)
 
-  // Eliminar usuario de auth
-  const { error } = await adminClient.auth.admin.deleteUser(authUserId)
+  if (inviteError) throw inviteError
+  if (!inviteData.user) throw new Error("No se pudo invitar al usuario")
 
-  if (error) {
-    console.error("Error deleting user:", error)
-    throw new Error(error.message)
+  const authUserId = inviteData.user.id
+
+  // 2. Find "Basico" Role
+  const { data: role } = await supabase
+    .from("roles")
+    .select("id, name")
+    .eq("organization_id", orgId)
+    .ilike("name", "Basico")
+    .single()
+
+  const roleId = role?.id
+  const roleName = role?.name || "Basico"
+
+  // 3. Add to admins table
+  const { data: existingAdmin } = await supabase
+    .from("admins")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("email", email)
+    .single()
+
+  if (!existingAdmin) {
+    await supabase
+      .from("admins")
+      .insert({
+        organization_id: orgId,
+        auth_user_id: authUserId,
+        name: name || email.split("@")[0],
+        email: email,
+        role_id: roleId,
+        status: 'active'
+      })
+  }
+
+  // 4. Sync to organization_members
+  const { data: existingMember } = await supabaseAdmin
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("user_id", authUserId)
+    .single()
+
+  if (existingMember) {
+    await supabaseAdmin
+      .from("organization_members")
+      .update({ role: roleName })
+      .eq("id", existingMember.id)
+  } else {
+    await supabaseAdmin
+      .from("organization_members")
+      .insert({
+        organization_id: orgId,
+        user_id: authUserId,
+        role: roleName
+      })
   }
 
   revalidatePath("/dashboard/roles")
+  return { success: true }
 }
+
 
 

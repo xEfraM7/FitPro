@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Dumbbell } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { signIn } from "@/lib/actions/auth"
 import Link from "next/link"
@@ -28,7 +28,7 @@ export default function LoginMainComponent() {
     setGeneralError("")
     setIsLoading(true)
     const result = await signIn(data.email, data.password)
-    
+
     if (result?.error) {
       setGeneralError("Credenciales inválidas. Verifica tu correo y contraseña.")
       setIsLoading(false)
@@ -39,12 +39,14 @@ export default function LoginMainComponent() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/20 to-background p-4">
       <Card className="w-full max-w-md shadow-2xl border-border/50">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto w-32 h-auto">
-            <img src="/Madbox_logo.jpeg" alt="Madbox" className="w-full h-auto object-contain" />
+          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Dumbbell className="w-8 h-8 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-3xl font-bold">Madbox</CardTitle>
-            <CardDescription className="text-base mt-2">Panel de administración del gimnasio</CardDescription>
+            <CardTitle className="text-2xl font-bold">FitPro</CardTitle>
+            <CardDescription className="text-base mt-2">
+              Panel de administración del gimnasio
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -55,7 +57,7 @@ export default function LoginMainComponent() {
                 id="email"
                 type="email"
                 placeholder="admin@gimnasio.com"
-                {...register("email", { 
+                {...register("email", {
                   required: "El correo electrónico es requerido",
                   pattern: { value: /\S+@\S+\.\S+/, message: "Ingresa un correo electrónico válido" }
                 })}
@@ -70,12 +72,14 @@ export default function LoginMainComponent() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">Contraseña</Label>
+              <div className="flex justify-between items-center">
+                <Label htmlFor="password" className="text-sm font-medium">Contraseña</Label>
+              </div>
               <Input
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                {...register("password", { 
+                {...register("password", {
                   required: "La contraseña es requerida",
                   minLength: { value: 6, message: "La contraseña debe tener al menos 6 caracteres" }
                 })}

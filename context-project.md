@@ -1,4 +1,4 @@
-# Madbox - Contexto del Proyecto
+# FitPro - Contexto del Proyecto
 
 > **Objetivo**: Este archivo contiene todo el contexto necesario para trabajar en el proyecto sin necesidad de re-analizar la estructura cada vez.
 
@@ -6,7 +6,7 @@
 
 ## 🎯 Resumen del Proyecto
 
-**Madbox** es un sistema completo de gestión de gimnasios desarrollado con Next.js 16 y Supabase. Permite administrar membresías, pagos, clases especiales y control financiero con soporte multi-moneda (Bolívares, USD y USDT).
+**FitPro** es un sistema completo de gestión de gimnasios desarrollado con Next.js 16 y Supabase. Permite administrar membresías, pagos, clases especiales y control financiero con soporte multi-moneda (Bolívares, USD y USDT).
 
 ---
 
@@ -30,7 +30,7 @@
 ## 📁 Estructura del Proyecto
 
 ```
-madbox/
+fitpro/
 ├── app/                              # App Router de Next.js
 │   ├── layout.tsx                   # Layout principal
 │   ├── page.tsx                     # Página raíz (redirige a /dashboard)
@@ -332,4 +332,4 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ---
 
 *Última actualización: Enero 2026*
-*Proyecto privado - Madbox © 2024*
+*Proyecto privado - FitPro © 2024*

@@ -1,4 +1,4 @@
-# Madbox - Sistema de Gestión de Gimnasio
+# FitPro - Sistema de Gestión de Gimnasio
 
 Sistema completo de administración para gimnasios desarrollado con Next.js 16 y Supabase. Diseñado para gestionar membresías, pagos, clases especiales y control financiero con soporte multi-moneda (Bolívares, USD y USDT).
 
@@ -158,7 +158,7 @@ Sistema completo de administración para gimnasios desarrollado con Next.js 16 y
 1. **Clonar el repositorio**
 ```bash
 git clone <url-del-repo>
-cd madbox
+cd fitpro
 ```
 
 2. **Instalar dependencias**
@@ -249,4 +249,4 @@ La interfaz está optimizada para:
 
 ## 📄 Licencia
 
-Proyecto privado - Madbox © 2024
+Proyecto privado - FitPro © 2024

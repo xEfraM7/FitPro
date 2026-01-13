@@ -26,10 +26,17 @@ export async function getExchangeRates() {
 
 export async function updateExchangeRate(type: string, rate: number) {
   const supabase = await createClient()
+  const { orgId } = await getUserOrganizationId()
+
+  // Use upsert to handle cases where rate doesn't exist for this org yet
   const { error } = await supabase
     .from("exchange_rates")
-    .update({ rate, updated_at: new Date().toISOString() })
-    .eq("type", type)
+    .upsert({
+      type,
+      rate,
+      updated_at: new Date().toISOString(),
+      organization_id: orgId
+    }, { onConflict: "organization_id, type" })
 
   if (error) throw error
   revalidatePath("/dashboard")
@@ -49,7 +56,7 @@ export async function getFunds() {
 
 export async function getFundsWithConversion() {
   const supabase = await createClient()
-  
+
   const [fundsResult, ratesResult, paymentsResult, classPaymentsResult] = await Promise.all([
     supabase.from("funds").select("*"),
     supabase.from("exchange_rates").select("*"),
@@ -107,7 +114,7 @@ export async function getFundsWithConversionByMonth(monthOffset: number = 0) {
   const targetMonth = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
   const startOfMonth = targetMonth.toISOString().split("T")[0]
   const endOfMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).toISOString().split("T")[0]
-  
+
   const [fundsResult, ratesResult, paymentsResult, classPaymentsResult] = await Promise.all([
     supabase.from("funds").select("*"),
     supabase.from("exchange_rates").select("*"),
@@ -168,27 +175,40 @@ export async function getFundsWithConversionByMonth(monthOffset: number = 0) {
   }
 }
 
+import { getUserOrganizationId } from "@/lib/auth-helpers"
+
 export async function addToFund(method: string, amount: number) {
   const fundType = PAYMENT_METHOD_TO_FUND[method]
   if (!fundType) return
 
   const supabase = await createClient()
-  
+  const { orgId } = await getUserOrganizationId()
+
   // Obtener el balance actual
   const { data: fund } = await supabase
     .from("funds")
     .select("balance")
     .eq("type", fundType)
+    .eq("organization_id", orgId)
     .single()
+
+  // If fund doesn't exist, we might need to create it? 
+  // For now, assuming it exists or we create it. 
+  // Use upsert to be safe? 
+  // Let's stick to update but scoped, if it assumes existence.
 
   const currentBalance = fund?.balance || 0
   const newBalance = currentBalance + amount
 
-  // Actualizar el balance
+  // Upsert is safer for new orgs if rows don't exist
   const { error } = await supabase
     .from("funds")
-    .update({ balance: newBalance, updated_at: new Date().toISOString() })
-    .eq("type", fundType)
+    .upsert({
+      type: fundType,
+      balance: newBalance,
+      updated_at: new Date().toISOString(),
+      organization_id: orgId
+    }, { onConflict: "organization_id, type" }) // Assuming composite unique constraint
 
   if (error) throw error
   revalidatePath("/dashboard")
@@ -199,11 +219,13 @@ export async function subtractFromFund(method: string, amount: number) {
   if (!fundType) return
 
   const supabase = await createClient()
-  
+  const { orgId } = await getUserOrganizationId()
+
   const { data: fund } = await supabase
     .from("funds")
     .select("balance")
     .eq("type", fundType)
+    .eq("organization_id", orgId)
     .single()
 
   const currentBalance = fund?.balance || 0
@@ -213,6 +235,7 @@ export async function subtractFromFund(method: string, amount: number) {
     .from("funds")
     .update({ balance: newBalance, updated_at: new Date().toISOString() })
     .eq("type", fundType)
+    .eq("organization_id", orgId)
 
   if (error) throw error
   revalidatePath("/dashboard")
@@ -220,11 +243,13 @@ export async function subtractFromFund(method: string, amount: number) {
 
 export async function resetFund(type: string) {
   const supabase = await createClient()
-  
+  const { orgId } = await getUserOrganizationId()
+
   const { error } = await supabase
     .from("funds")
     .update({ balance: 0, updated_at: new Date().toISOString() })
     .eq("type", type)
+    .eq("organization_id", orgId)
 
   if (error) throw error
   revalidatePath("/dashboard")
@@ -232,11 +257,13 @@ export async function resetFund(type: string) {
 
 export async function withdrawFromFund(type: string, amount: number) {
   const supabase = await createClient()
-  
+  const { orgId } = await getUserOrganizationId()
+
   const { data: fund } = await supabase
     .from("funds")
     .select("balance")
     .eq("type", type)
+    .eq("organization_id", orgId)
     .single()
 
   const currentBalance = fund?.balance || 0
@@ -250,6 +277,7 @@ export async function withdrawFromFund(type: string, amount: number) {
     .from("funds")
     .update({ balance: newBalance, updated_at: new Date().toISOString() })
     .eq("type", type)
+    .eq("organization_id", orgId)
 
   if (error) throw error
   revalidatePath("/dashboard")
@@ -258,7 +286,7 @@ export async function withdrawFromFund(type: string, amount: number) {
 // Obtener totales de pagos de membresías por método
 export async function getPaymentsFundsSummary() {
   const supabase = await createClient()
-  
+
   const { data: payments } = await supabase
     .from("payments")
     .select("amount, method, status")
@@ -287,7 +315,7 @@ export async function getPaymentsFundsSummary() {
 // Obtener totales de pagos del mes actual
 export async function getPaymentsFundsSummaryByMonth(monthOffset: number = 0) {
   const supabase = await createClient()
-  
+
   const now = new Date()
   const targetMonth = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
   const startOfMonth = targetMonth.toISOString().split("T")[0]
@@ -323,7 +351,7 @@ export async function getPaymentsFundsSummaryByMonth(monthOffset: number = 0) {
 // Obtener totales de pagos de clases especiales por método
 export async function getSpecialClassPaymentsFundsSummary() {
   const supabase = await createClient()
-  
+
   const { data: payments } = await supabase
     .from("special_class_payments")
     .select("amount, method, status")

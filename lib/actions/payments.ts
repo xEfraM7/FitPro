@@ -17,11 +17,15 @@ export async function getPayments() {
   return data
 }
 
+import { getUserOrganizationId } from "@/lib/auth-helpers"
+
 export async function createPayment(payment: TablesInsert<"payments">) {
   const supabase = await createClient()
+  const { orgId } = await getUserOrganizationId()
+
   const { data, error } = await supabase
     .from("payments")
-    .insert(payment)
+    .insert({ ...payment, organization_id: orgId })
     .select()
     .single()
 
@@ -33,12 +37,13 @@ export async function createPayment(payment: TablesInsert<"payments">) {
   if (payment.member_id && payment.due_date) {
     await supabase
       .from("members")
-      .update({ 
-        payment_date: payment.due_date, 
+      .update({
+        payment_date: payment.due_date,
         status: "active",
-        updated_at: new Date().toISOString() 
+        updated_at: new Date().toISOString()
       })
       .eq("id", payment.member_id)
+    // Implicitly scoped by RLS, but members are within the same org
   }
 
   // Agregar al fondo correspondiente si el pago está pagado
@@ -110,7 +115,7 @@ export async function getMemberPayments(memberId: string) {
 
 export async function deletePayment(id: string) {
   const supabase = await createClient()
-  
+
   // Obtener el pago antes de eliminarlo para restar del fondo
   const { data: payment } = await supabase
     .from("payments")

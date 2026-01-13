@@ -31,7 +31,7 @@ function createTransporter() {
 }
 
 export async function sendWelcomeEmail(params: WelcomeEmailParams) {
-  const { to, memberName, planName, gymName = "Madbox" } = params
+  const { to, memberName, planName, gymName = "FitPro" } = params
 
   const gmailUser = process.env.GMAIL_USER
   const gmailPassword = process.env.GMAIL_APP_PASSWORD
@@ -50,7 +50,7 @@ export async function sendWelcomeEmail(params: WelcomeEmailParams) {
 
   const finalGymName = settings?.name || gymName
   // URL del logo - usar la URL pública
-  const logoUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/Madbox_logo.jpeg`
+  const logoUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/icon-dark-32x32.svg`
 
   try {
     const transporter = createTransporter()
@@ -80,7 +80,7 @@ export async function sendWelcomeEmail(params: WelcomeEmailParams) {
 }
 
 export async function sendRenewalNotification(params: RenewalNotificationParams) {
-  const { to, memberName, planName, daysUntilExpiry, expiryDate, gymName = "Madbox" } = params
+  const { to, memberName, planName, daysUntilExpiry, expiryDate, gymName = "FitPro" } = params
 
   const gmailUser = process.env.GMAIL_USER
   const gmailPassword = process.env.GMAIL_APP_PASSWORD
@@ -98,12 +98,12 @@ export async function sendRenewalNotification(params: RenewalNotificationParams)
     .single()
 
   const finalGymName = settings?.name || gymName
-  const logoUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/Madbox_logo.jpeg`
+  const logoUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/icon-dark-32x32.svg`
 
   try {
     const transporter = createTransporter()
 
-    const subject = daysUntilExpiry === 0 
+    const subject = daysUntilExpiry === 0
       ? `⚠️ Tu suscripción a ${finalGymName} vence hoy`
       : `⏰ Tu suscripción a ${finalGymName} vence en ${daysUntilExpiry} días`
 

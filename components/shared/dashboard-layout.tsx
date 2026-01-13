@@ -15,7 +15,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, getUser } from "@/lib/actions/auth"
 import { getGymSettings } from "@/lib/actions/settings"
-import { getAdmins } from "@/lib/actions/roles"
+import { getCurrentMember } from "@/lib/actions/members"
 import { getExchangeRates } from "@/lib/actions/funds"
 
 const navigation = [
@@ -123,9 +123,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     queryFn: getUser,
   })
 
-  const { data: admins = [] } = useQuery({
-    queryKey: ["admins"],
-    queryFn: getAdmins,
+  const { data: currentMember } = useQuery({
+    queryKey: ["current-member"],
+    queryFn: getCurrentMember,
   })
 
   const { data: exchangeRates = [] } = useQuery({
@@ -138,12 +138,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const customRate = exchangeRates.find((r: any) => r.type === "CUSTOM")?.rate || 0
 
   // Buscar el admin actual por email
-  const currentAdmin = admins.find((admin: any) => admin.email === currentUser?.email)
-  const userName = currentAdmin?.name || currentUser?.email?.split("@")[0] || "Usuario"
+  const userName = currentMember?.name || currentUser?.email?.split("@")[0] || "Usuario"
   const userEmail = currentUser?.email || ""
-  const userRole = currentAdmin?.roles?.name || "Admin"
+  const userRole = currentMember?.role || "Miembro"
 
-  const gymName = gymSettings?.name || "Madbox"
+  const gymName = gymSettings?.name || "FitPro"
 
   // Filtrar navegación según permisos
   const filteredNavigation = navigation.filter(item => {
@@ -183,7 +182,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex items-center justify-between px-4 pb-4 border-b border-sidebar-border">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 overflow-hidden rounded-lg">
-                <img src="/Madbox_logo.jpeg" alt="Madbox" className="w-full h-full object-contain" />
+                <div className="text-xl font-bold text-primary">FitPro</div>
               </div>
               <div>
                 <h1 className="text-lg font-bold text-sidebar-foreground">{gymName}</h1>
@@ -246,7 +245,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex h-full flex-col w-full">
           <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
             <div className="w-10 h-10 overflow-hidden">
-              <img src="/Madbox_logo.jpeg" alt="Madbox" className="w-full h-full object-contain" />
+              <div className="text-xl font-bold text-primary">FitPro</div>
             </div>
             <div>
               <h1 className="text-lg font-bold text-sidebar-foreground">{gymName}</h1>

@@ -26,29 +26,27 @@ interface LogActivityParams {
   details?: Record<string, any>
 }
 
+import { getUserOrganizationId } from "@/lib/auth-helpers"
+
 export async function logActivity(params: LogActivityParams) {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return // No log for unauthenticated users? Or maybe system log?
 
-  let adminName = "Sistema"
-  let adminId = null
+  let adminName = user.user_metadata?.name || user.email || "Usuario"
+  let orgId: string | null = null
 
-  if (user) {
-    const { data: admin } = await supabase
-      .from("admins")
-      .select("id, name")
-      .eq("auth_user_id", user.id)
-      .single()
-
-    if (admin) {
-      adminId = admin.id
-      adminName = admin.name
-    }
+  try {
+    const { orgId: id } = await getUserOrganizationId()
+    orgId = id
+  } catch (e) {
+    console.warn("Could not determine organization for activity log")
   }
 
   const { error } = await supabase.from("activity_log").insert({
-    admin_id: adminId,
+    organization_id: orgId,
+    admin_id: user.id, // Using auth user id instead of admins table id
     admin_name: adminName,
     action: params.action,
     entity_type: params.entityType,

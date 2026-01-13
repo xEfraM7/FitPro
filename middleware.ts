@@ -45,6 +45,34 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
+  // Check Onboarding (Has Organization?)
+  if (user && (pathname.startsWith("/dashboard") || pathname === "/")) {
+    // Use Service Role to bypass RLS and ensure we find the membership if it exists
+    const adminSupabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        cookies: {
+          getAll() { return request.cookies.getAll() },
+          setAll() { } // usage of service role doesn't need to set cookies for auth
+        },
+      }
+    )
+
+    const { count, error } = await adminSupabase
+      .from("organization_members")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+
+    console.log("Middleware: Check. User:", user.email, user.id, "Count:", count, "KeyPresent:", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+
+    // If no org membership found (and no error), redirect to onboarding
+    if (!error && count === 0) {
+      console.log("Middleware: Redirecting to Create Organization")
+      return NextResponse.redirect(new URL("/create-organization", request.url))
+    }
+  }
+
   return supabaseResponse
 }
 

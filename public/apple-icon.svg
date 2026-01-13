@@ -2,6 +2,6 @@
   <!-- Background -->
   <rect width="180" height="180" fill="#000000" rx="40"/>
   
-  <!-- Madbox logo simplified -->
+  <!-- FitPro logo simplified -->
   <text x="90" y="130" font-size="100" font-weight="bold" text-anchor="middle" fill="#FF6B35" font-family="Arial">M</text>
 </svg>
