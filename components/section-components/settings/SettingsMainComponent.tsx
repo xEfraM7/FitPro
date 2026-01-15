@@ -27,6 +27,13 @@ interface PasswordForm {
   confirmPassword: string
 }
 
+interface ScheduleDay {
+  id: string
+  day_of_week: string
+  open_time: string
+  close_time: string
+}
+
 const dayOrder = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
 export default function SettingsMainComponent() {
@@ -37,12 +44,12 @@ export default function SettingsMainComponent() {
     queryFn: getGymSettings,
   })
 
-  const { data: schedule = [], isLoading: loadingSchedule } = useQuery({
+  const { data: schedule = [], isLoading: loadingSchedule } = useQuery<ScheduleDay[]>({
     queryKey: ["gym-schedule"],
     queryFn: getGymSchedule,
   })
 
-  const sortedSchedule = [...schedule].sort((a: any, b: any) => 
+  const sortedSchedule = [...schedule].sort((a, b) =>
     dayOrder.indexOf(a.day_of_week) - dayOrder.indexOf(b.day_of_week)
   )
 
@@ -69,22 +76,22 @@ export default function SettingsMainComponent() {
     mutationFn: (data: GymInfoForm) => updateGymSettings(settings?.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["gym-settings"] })
-      showToast.success("Configuración guardada", "Los datos del gimnasio han sido actualizados." )
+      showToast.success("Configuración guardada", "Los datos del gimnasio han sido actualizados.")
     },
     onError: () => {
-      showToast.error("Error", "No se pudo guardar la configuración." )
+      showToast.error("Error", "No se pudo guardar la configuración.")
     },
   })
 
   const updateScheduleMutation = useMutation({
-    mutationFn: ({ id, open_time, close_time }: { id: string; open_time: string; close_time: string }) => 
+    mutationFn: ({ id, open_time, close_time }: { id: string; open_time: string; close_time: string }) =>
       updateGymSchedule(id, { open_time, close_time }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["gym-schedule"] })
-      showToast.success("Horario actualizado", "El horario ha sido guardado." )
+      showToast.success("Horario actualizado", "El horario ha sido guardado.")
     },
     onError: () => {
-      showToast.error("Error", "No se pudo actualizar el horario." )
+      showToast.error("Error", "No se pudo actualizar el horario.")
     },
   })
 
@@ -95,28 +102,28 @@ export default function SettingsMainComponent() {
   const updatePasswordMutation = useMutation({
     mutationFn: (newPassword: string) => updatePassword(newPassword),
     onSuccess: () => {
-      showToast.success("Contraseña actualizada", "Tu contraseña ha sido cambiada exitosamente." )
+      showToast.success("Contraseña actualizada", "Tu contraseña ha sido cambiada exitosamente.")
       resetPassword()
     },
     onError: (error: Error) => {
-      showToast.error("Error", error.message || "No se pudo actualizar la contraseña." )
+      showToast.error("Error", error.message || "No se pudo actualizar la contraseña.")
     },
   })
 
   const onSubmitPassword = (data: PasswordForm) => {
     if (data.newPassword !== data.confirmPassword) {
-      showToast.error("Error", "Las contraseñas no coinciden." )
+      showToast.error("Error", "Las contraseñas no coinciden.")
       return
     }
     if (data.newPassword.length < 6) {
-      showToast.error("Error", "La contraseña debe tener al menos 6 caracteres." )
+      showToast.error("Error", "La contraseña debe tener al menos 6 caracteres.")
       return
     }
     updatePasswordMutation.mutate(data.newPassword)
   }
 
   const handleScheduleChange = (id: string, field: "open_time" | "close_time", value: string) => {
-    const daySchedule = schedule.find((s: any) => s.id === id)
+    const daySchedule = schedule.find((s) => s.id === id)
     if (daySchedule) {
       updateScheduleMutation.mutate({
         id,
@@ -218,18 +225,18 @@ export default function SettingsMainComponent() {
                       <div className="flex gap-2 sm:contents">
                         <div className="flex-1 sm:block">
                           <span className="text-xs text-muted-foreground sm:hidden">Abre: </span>
-                          <Input 
-                            type="time" 
-                            defaultValue={day.open_time?.slice(0, 5)} 
+                          <Input
+                            type="time"
+                            defaultValue={day.open_time?.slice(0, 5)}
                             className="scheme-dark"
                             onBlur={(e) => handleScheduleChange(day.id, "open_time", e.target.value)}
                           />
                         </div>
                         <div className="flex-1 sm:block">
                           <span className="text-xs text-muted-foreground sm:hidden">Cierra: </span>
-                          <Input 
-                            type="time" 
-                            defaultValue={day.close_time?.slice(0, 5)} 
+                          <Input
+                            type="time"
+                            defaultValue={day.close_time?.slice(0, 5)}
                             className="scheme-dark"
                             onBlur={(e) => handleScheduleChange(day.id, "close_time", e.target.value)}
                           />
@@ -257,21 +264,21 @@ export default function SettingsMainComponent() {
                 <form onSubmit={handleSubmitPassword(onSubmitPassword)} className="space-y-4 max-w-md">
                   <div className="grid gap-2">
                     <Label htmlFor="newPassword">Nueva contraseña</Label>
-                    <Input 
-                      id="newPassword" 
-                      type="password" 
+                    <Input
+                      id="newPassword"
+                      type="password"
                       placeholder="••••••••"
-                      {...registerPassword("newPassword", { required: true, minLength: 6 })} 
+                      {...registerPassword("newPassword", { required: true, minLength: 6 })}
                     />
                     <p className="text-xs text-muted-foreground">Mínimo 6 caracteres</p>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
-                    <Input 
-                      id="confirmPassword" 
-                      type="password" 
+                    <Input
+                      id="confirmPassword"
+                      type="password"
                       placeholder="••••••••"
-                      {...registerPassword("confirmPassword", { required: true })} 
+                      {...registerPassword("confirmPassword", { required: true })}
                     />
                   </div>
                   <Button type="submit" disabled={updatePasswordMutation.isPending}>

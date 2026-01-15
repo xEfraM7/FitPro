@@ -27,6 +27,12 @@ interface FormData {
   status: string
 }
 
+interface AuthUser {
+  id: string
+  name: string
+  email: string
+}
+
 export function AdminFormModal({ open, onOpenChange, admin, roles }: AdminFormModalProps) {
   const queryClient = useQueryClient()
   const isEditing = !!admin
@@ -39,7 +45,7 @@ export function AdminFormModal({ open, onOpenChange, admin, roles }: AdminFormMo
   const role_id = watch("role_id")
   const status = watch("status")
 
-  const { data: authUsers = [], isLoading: loadingUsers } = useQuery({
+  const { data: authUsers = [], isLoading: loadingUsers } = useQuery<AuthUser[]>({
     queryKey: ["auth-users"],
     queryFn: getAuthUsers,
     enabled: open && !isEditing,
@@ -63,7 +69,7 @@ export function AdminFormModal({ open, onOpenChange, admin, roles }: AdminFormMo
 
   const handleUserSelect = (userId: string) => {
     setValue("auth_user_id", userId)
-    const selectedUser = authUsers.find((u: any) => u.id === userId)
+    const selectedUser = authUsers.find((u) => u.id === userId)
     if (selectedUser) {
       setValue("name", selectedUser.name)
       setValue("email", selectedUser.email)
@@ -75,20 +81,20 @@ export function AdminFormModal({ open, onOpenChange, admin, roles }: AdminFormMo
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admins"] })
       queryClient.invalidateQueries({ queryKey: ["auth-users"] })
-      showToast.success("Administrador creado", "El administrador ha sido registrado correctamente." )
+      showToast.success("Administrador creado", "El administrador ha sido registrado correctamente.")
       onOpenChange(false)
     },
-    onError: () => showToast.error("Error", "No se pudo crear el administrador." ),
+    onError: () => showToast.error("Error", "No se pudo crear el administrador."),
   })
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => updateAdmin(admin.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admins"] })
-      showToast.success("Administrador actualizado", "Los cambios han sido guardados." )
+      showToast.success("Administrador actualizado", "Los cambios han sido guardados.")
       onOpenChange(false)
     },
-    onError: () => showToast.error("Error", "No se pudo actualizar el administrador." ),
+    onError: () => showToast.error("Error", "No se pudo actualizar el administrador."),
   })
 
   const onSubmit = (data: FormData) => {
@@ -147,9 +153,9 @@ export function AdminFormModal({ open, onOpenChange, admin, roles }: AdminFormMo
 
             <div className="grid gap-2">
               <Label htmlFor="name">Nombre completo</Label>
-              <Input 
-                id="name" 
-                {...register("name", { required: "El nombre es requerido" })} 
+              <Input
+                id="name"
+                {...register("name", { required: "El nombre es requerido" })}
                 placeholder="Nombre del administrador"
                 disabled={!isEditing && !auth_user_id}
               />
@@ -158,10 +164,10 @@ export function AdminFormModal({ open, onOpenChange, admin, roles }: AdminFormMo
 
             <div className="grid gap-2">
               <Label htmlFor="email">Correo electrónico</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                {...register("email", { required: "El correo es requerido" })} 
+              <Input
+                id="email"
+                type="email"
+                {...register("email", { required: "El correo es requerido" })}
                 placeholder="correo@ejemplo.com"
                 disabled={!isEditing}
               />
