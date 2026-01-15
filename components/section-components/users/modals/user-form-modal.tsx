@@ -76,52 +76,94 @@ export function UserFormModal({ open, onOpenChange, user }: UserFormModalProps) 
         ...data,
         payment_date: dueDateStr,
       }
+
+      // Create member first - this is the critical operation
       const member = await createMember(memberData)
 
+      // Track partial failures
+      let paymentError = null
+      let emailError = null
+
+      // Register first payment if enabled (non-blocking on failure)
       if (registerFirstPayment && member?.id && data.plan_id) {
-        const selectedPlan = plans.find((p: any) => p.id === data.plan_id)
-        const amount = paymentAmount ? parseFloat(paymentAmount) : selectedPlan?.price || 0
-        if (amount > 0) {
-          const methodsWithReference = ["Pago Movil", "Transferencia", "Transferencia BS", "USDT"]
-          const methodsInBs = ["Pago Movil", "Efectivo bs", "Transferencia BS"]
-          await createPayment({
-            member_id: member.id,
-            plan_id: data.plan_id,
-            amount: amount,
-            method: paymentMethod,
-            reference: methodsWithReference.includes(paymentMethod) && paymentReference ? paymentReference : null,
-            status: "paid",
-            payment_date: selectedPaymentDate,
-            due_date: dueDateStr,
-            payment_rate: methodsInBs.includes(paymentMethod) && paymentRate ? parseFloat(paymentRate) : null,
-          })
+        try {
+          const selectedPlan = plans.find((p: any) => p.id === data.plan_id)
+          const amount = paymentAmount ? parseFloat(paymentAmount) : selectedPlan?.price || 0
+          if (amount > 0) {
+            const methodsWithReference = ["Pago Movil", "Transferencia", "Transferencia BS", "USDT"]
+            const methodsInBs = ["Pago Movil", "Efectivo bs", "Transferencia BS"]
+            await createPayment({
+              member_id: member.id,
+              plan_id: data.plan_id,
+              amount: amount,
+              method: paymentMethod,
+              reference: methodsWithReference.includes(paymentMethod) && paymentReference ? paymentReference : null,
+              status: "paid",
+              payment_date: selectedPaymentDate,
+              due_date: dueDateStr,
+              payment_rate: methodsInBs.includes(paymentMethod) && paymentRate ? parseFloat(paymentRate) : null,
+            })
+          }
+        } catch (e) {
+          paymentError = e
+          console.error("Error registering first payment:", e)
         }
       }
 
+      // Send welcome email if enabled (non-blocking on failure)
       if (sendWelcome && member?.id) {
-        const selectedPlan = plans.find((p: any) => p.id === data.plan_id)
-        sendWelcomeEmail({
-          to: data.email,
-          memberName: data.name,
-          planName: selectedPlan?.name,
-        }).catch(console.error)
+        try {
+          const selectedPlan = plans.find((p: any) => p.id === data.plan_id)
+          await sendWelcomeEmail({
+            to: data.email,
+            memberName: data.name,
+            planName: selectedPlan?.name,
+          })
+        } catch (e) {
+          emailError = e
+          console.error("Error sending welcome email:", e)
+        }
       }
 
-      return member
+      // Return member with any partial errors
+      return { member, paymentError, emailError }
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["members"] })
       queryClient.invalidateQueries({ queryKey: ["payments"] })
       queryClient.invalidateQueries({ queryKey: ["payments-funds-summary"] })
       queryClient.invalidateQueries({ queryKey: ["recent-activity"] })
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
-      const message = registerFirstPayment
-        ? `${variables.name} ha sido registrado con su primer pago.`
-        : `${variables.name} ha sido registrado sin pago inicial.`
-      showToast.success("Cliente creado", message)
+
+      // Show appropriate message based on what succeeded/failed
+      if (result.paymentError && result.emailError) {
+        showToast.warning(
+          "Cliente creado con advertencias",
+          `${variables.name} fue registrado, pero hubo errores al registrar el pago y enviar el correo.`
+        )
+      } else if (result.paymentError) {
+        showToast.warning(
+          "Cliente creado con advertencia",
+          `${variables.name} fue registrado, pero hubo un error al registrar el primer pago.`
+        )
+      } else if (result.emailError) {
+        showToast.warning(
+          "Cliente creado con advertencia",
+          `${variables.name} fue registrado, pero hubo un error al enviar el correo de bienvenida.`
+        )
+      } else {
+        const message = registerFirstPayment
+          ? `${variables.name} ha sido registrado con su primer pago.`
+          : `${variables.name} ha sido registrado sin pago inicial.`
+        showToast.success("Cliente creado", message)
+      }
+
       onOpenChange(false)
     },
-    onError: () => showToast.error("Error", "No se pudo crear el cliente."),
+    onError: (error) => {
+      console.error("Error creating member:", error)
+      showToast.error("Error", "No se pudo crear el cliente. Por favor, intenta de nuevo.")
+    },
   })
 
   const updateMutation = useMutation({
